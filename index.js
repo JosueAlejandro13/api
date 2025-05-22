@@ -156,10 +156,10 @@ app.put('/updateUserData', (req, res) => {
       `;
 
       const jsonData = JSON.stringify({
-        antes: oldData,
-        después: newData,
+         oldData,
+         newData,
       });
-
+      
       pool.query(insertModificationQuery, [
         'collaborators_data',
         parseInt(userId),
