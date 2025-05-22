@@ -178,6 +178,84 @@ app.put('/updateUserData', (req, res) => {
   });
 });
 
+app.put('/updatePassword', (req, res) => {
+  const {
+    usuario,
+    currentPassword,
+    newPassword,
+    idMainAccount
+  } = req.body;
+
+  if (!usuario || !currentPassword || !newPassword || !idMainAccount) {
+    return res.status(400).json({ error: 'Campos requeridos vacíos' });
+  }
+
+  const hashedCurrentPassword = crypto.createHash('md5').update(currentPassword).digest('hex');
+  const hashedNewPassword = crypto.createHash('md5').update(newPassword).digest('hex');
+
+  const selectQuery = `
+    SELECT id, password 
+    FROM acco_Users 
+    WHERE usuario = ? AND password = ?
+  `;
+
+  pool.query(selectQuery, [usuario, hashedCurrentPassword], (err, results) => {
+    if (err) {
+      console.error('Error al consultar usuario:', err.message);
+      return res.status(500).json({ error: 'Error al consultar usuario' });
+    }
+
+    if (results.length === 0) {
+      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    }
+
+    const userId = results[0].id;
+
+    const updateQuery = `
+      UPDATE acco_Users 
+      SET password = ?
+      WHERE usuario = ?
+    `;
+
+    pool.query(updateQuery, [hashedNewPassword, usuario], (err) => {
+      if (err) {
+        console.error('Error al actualizar contraseña:', err.message);
+        return res.status(500).json({ error: 'Error al actualizar contraseña' });
+      }
+
+      const insertModificationQuery = `
+        INSERT INTO aux_HistoricalModifications (
+          tableName, idTable, idUsUpdate, fecHor, type, data
+        ) VALUES (?, ?, ?, NOW(), ?, ?)
+      `;
+
+      const oldData = { password: hashedCurrentPassword };
+      const newData = { password: hashedNewPassword };
+
+      const jsonData = JSON.stringify({
+        ['-']: oldData,
+        ['--']: newData,
+      });
+
+      pool.query(insertModificationQuery, [
+        'acco_Users',
+        userId,
+        parseInt(idMainAccount),
+        0,
+        jsonData
+      ], (err) => {
+        if (err) {
+          console.error('Error al insertar modificación:', err.message);
+          return res.status(500).json({ error: 'Error al guardar modificación' });
+        }
+
+        return res.json({ message: 'Contraseña actualizada correctamente' });
+      });
+    });
+  });
+});
+
+
 
 
 
