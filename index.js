@@ -15,7 +15,6 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-// Ruta simple para probar conexión
 app.get('/acco_Users', (req, res) => {
   pool.query('SELECT * FROM acco_Users LIMIT 10', (err, results) => {
     if (err) {
@@ -26,6 +25,6 @@ app.get('/acco_Users', (req, res) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Servidor corriendo en http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
