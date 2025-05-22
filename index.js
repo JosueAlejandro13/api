@@ -16,7 +16,7 @@ const pool = mysql.createPool({
 });
 
 app.get('/acco_Users', (req, res) => {
-  pool.query('SELECT * FROM acco_Users LIMIT 10', (err, results) => {
+  pool.query('SELECT * FROM acco_Users LIMIT 3', (err, results) => {
     if (err) {
       console.error('Error en consulta:', err.message);
       return res.status(500).json({ error: 'Error al consultar la base de datos' });
