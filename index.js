@@ -1,266 +1,187 @@
-import express from 'express';
-import mysql from 'mysql2';
-import dotenv from 'dotenv';
-import crypto from 'crypto';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/material.dart';
+import 'package:mysql1/mysql1.dart';
+import 'dart:convert';
+import 'package:mark_v3/services/database_service.dart';
+import 'package:http/http.dart' as http;
 
+//Autor: Josue Hernandez
+class ProfileconService {
+  final DatabaseService _dbService = DatabaseService();
 
-dotenv.config();
+  Future<Map<String, dynamic>> getUserData(
+      String collaboratorId, String idUs) async {
+    final url = Uri.parse(
+        'https://flutter-production-c437.up.railway.app/userData/$collaboratorId/$idUs');
 
-const app = express();
+    try {
+      final response = await http.get(url);
 
-app.use(express.json());
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        debugPrint('Datos!!!!!!!!!!!!! Usuario: $data');
 
-const port = process.env.PORT || 3000;
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-});
-
-// Ruta raíz para probar conexión a la base
-app.get('/licencia/:idCollabo', (req, res) => {
-  const { idCollabo } = req.params;
-
-  const query = `
-    SELECT id, licNum, licClass, dueDate 
-    FROM collaborators_LicenseDrive 
-    WHERE idCollabo = ?
-  `;
-
-  pool.query(query, [idCollabo], (err, results) => {
-    if (err) {
-      console.error('Error al consultar la base de datos:', err.message);
-      return res.status(500).json({ error: 'Error al consultar la base de datos' });
+        return Map<String, dynamic>.from(data);
+      } else if (response.statusCode == 404) {
+        throw Exception('Usuario no encontrado');
+      } else {
+        throw Exception('Error del servidor: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error en la petición: $e');
+      rethrow;
     }
-
-    if (results.length > 0) {
-      return res.json(results[0]);
-    } else {
-      return res.status(404).json({ error: 'Licencia no encontrada' });
-    }
-  });
-});
-
-app.get('/userData/:id/:idUs', (req, res) => {
-  const { id, idUs } = req.params;
-
-  const query = `
-    SELECT * FROM collaborators_data 
-    WHERE id = ? AND idUs = ?
-  `;
-
-  pool.query(query, [id, idUs], (err, results) => {
-    if (err) {
-      console.error('Error en la consulta:', err.message);
-      return res.status(500).json({ error: 'Error al consultar la base de datos' });
-    }
-
-    if (results.length > 0) {
-      return res.json(results[0]); // Envía solo el primer resultado
-    } else {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-  });
-});
-
-app.put('/updateUserData', (req, res) => {
-  const {
-    userId,
-    firstName,
-    lastName,
-    email,
-    phone,
-    mobilPhone,
-    address,
-    dateOfBirth,
-    employeeNum,
-    idJobTitle,
-    idMainAccount
-  } = req.body;
-
-  if (!firstName || !lastName || !phone || !mobilPhone || !dateOfBirth) {
-    return res.status(400).json({ error: 'Campos requeridos vacíos' });
   }
 
-  const selectQuery = `
-    SELECT firstName, lastName, email, phone, mobilPhone, address, dateBirth, employeeNum, idJobTitle 
-    FROM collaborators_data 
-    WHERE id = ?
-  `;
+  Future<void> updateUserData({
+    required String userId,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phone,
+    required String mobilPhone,
+    required String address,
+    required String dateOfBirth,
+    required String employeeNum,
+    required String idJobTitle,
+    required String idMainAccount,
+  }) async {
+    final url = Uri.parse(
+        'https://flutter-production-c437.up.railway.app/updateUserData');
 
-  pool.query(selectQuery, [userId], (err, results) => {
-    if (err) {
-      console.error('Error al consultar usuario:', err.message);
-      return res.status(500).json({ error: 'Error al consultar usuario' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    const currentData = results[0];
-
-    const oldData = {
-      id: parseInt(userId),
-      firstName: currentData.firstName,
-      lastName: currentData.lastName,
-      email: currentData.email,
-      phone: currentData.phone,
-      mobilPhone: currentData.mobilPhone,
-      address: currentData.address,
-      dateBirth: currentData.dateBirth,
-      employeeNum: currentData.employeeNum,
-      idJobTitle: currentData.idJobTitle,
+    final body = {
+      'userId': userId,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      'phone': phone,
+      'mobilPhone': mobilPhone,
+      'address': address,
+      'dateOfBirth': dateOfBirth,
+      'employeeNum': employeeNum,
+      'idJobTitle': idJobTitle,
+      'idMainAccount': idMainAccount,
     };
 
-    const newData = {
-      id: parseInt(userId),
-      firstName,
-      lastName,
-      email,
-      phone,
-      mobilPhone,
-      address,
-      dateBirth: dateOfBirth,
-      employeeNum,
-      idJobTitle,
-    };
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
 
-    const updateQuery = `
-      UPDATE collaborators_data 
-      SET firstName = ?, lastName = ?, email = ?, phone = ?, mobilPhone = ?, address = ?, dateBirth = ?, employeeNum = ?, idJobTitle = ?
-      WHERE id = ?
-    `;
-
-    pool.query(updateQuery, [
-      firstName,
-      lastName,
-      email,
-      phone,
-      mobilPhone,
-      address,
-      dateOfBirth,
-      employeeNum,
-      idJobTitle,
-      userId
-    ], (err) => {
-      if (err) {
-        console.error('Error al actualizar usuario:', err.message);
-        return res.status(500).json({ error: 'Error al actualizar usuario' });
+      if (response.statusCode == 200) {
+        print('✅ Usuario actualizado correctamente');
+      } else {
+        print('⚠️ Error del servidor: ${response.statusCode}');
+        print('Respuesta: ${response.body}');
+        throw Exception('Error al actualizar usuario');
       }
-
-      const insertModificationQuery = `
-        INSERT INTO aux_HistoricalModifications (tableName, idTable, idUsUpdate, fecHor, type, data)
-        VALUES (?, ?, ?, NOW(), ?, ?)
-      `;
-
-      const jsonData = JSON.stringify({
-        ["-"]: oldData,
-        ["--"]: newData,
-      });
-      
-      pool.query(insertModificationQuery, [
-        'collaborators_data',
-        parseInt(userId),
-        parseInt(idMainAccount),
-        0,
-        jsonData
-      ], (err) => {
-        if (err) {
-          console.error('Error al insertar modificación:', err.message);
-          return res.status(500).json({ error: 'Error al guardar modificación' });
-        }
-
-        return res.json({ message: 'Usuario actualizado correctamente' });
-      });
-    });
-  });
-});
-
-app.put('/updatePassword', (req, res) => {
-  const {
-    usuario,
-    currentPassword,
-    newPassword,
-    idMainAccount
-  } = req.body;
-
-  if (!usuario || !currentPassword || !newPassword || !idMainAccount) {
-    return res.status(400).json({ error: 'Campos requeridos vacíos' });
+    } catch (e) {
+      print('❌ Error en la petición: $e');
+      rethrow;
+    }
   }
 
-  const hashedCurrentPassword = crypto.createHash('md5').update(currentPassword).digest('hex');
-  const hashedNewPassword = crypto.createHash('md5').update(newPassword).digest('hex');
+  Future<bool> updatePassword({
+    required String usuario,
+    required String currentPassword,
+    required String newPassword,
+    required String idMainAccount,
+  }) async {
+    final url = Uri.parse(
+        'https://flutter-production-c437.up.railway.app/updatePassword');
 
-  const selectQuery = `
-    SELECT id, password 
-    FROM acco_Users 
-    WHERE usuario = ? AND password = ?
-  `;
+    final body = {
+      'usuario': usuario,
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'idMainAccount': idMainAccount,
+    };
 
-  pool.query(selectQuery, [usuario, hashedCurrentPassword], (err, results) => {
-    if (err) {
-      console.error('Error al consultar usuario:', err.message);
-      return res.status(500).json({ error: 'Error al consultar usuario' });
-    }
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
 
-    if (results.length === 0) {
-      return res.status(401).json({ error: 'Contraseña actual incorrecta' });
-    }
-
-    const userId = results[0].id;
-
-    const updateQuery = `
-      UPDATE acco_Users 
-      SET password = ?
-      WHERE usuario = ?
-    `;
-
-    pool.query(updateQuery, [hashedNewPassword, usuario], (err) => {
-      if (err) {
-        console.error('Error al actualizar contraseña:', err.message);
-        return res.status(500).json({ error: 'Error al actualizar contraseña' });
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        debugPrint('Respuesta: ${json['message']}');
+        return true;
+      } else {
+        final error = jsonDecode(response.body)['error'];
+        debugPrint('Error: $error');
+        return false;
       }
+    } catch (e) {
+      debugPrint('Error al actualizar contraseña: $e');
+      return false;
+    }
+  }
 
-      const insertModificationQuery = `
-        INSERT INTO aux_HistoricalModifications (
-          tableName, idTable, idUsUpdate, fecHor, type, data
-        ) VALUES (?, ?, ?, NOW(), ?, ?)
-      `;
+  Future<Map<String, dynamic>> obtenerLicenciaPorColaborador(
+      String idCollabo) async {
+    final url = Uri.parse(
+        'https://flutter-production-c437.up.railway.app/licencia/$idCollabo');
 
-      const oldData = { password: hashedCurrentPassword };
-      const newData = { password: hashedNewPassword };
+    try {
+      final response = await http.get(url);
 
-      const jsonData = JSON.stringify({
-        ['-']: oldData,
-        ['--']: newData,
-      });
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        debugPrint('Datos!!!!!!!!!!!!! de la licencia de conducir: $data');
+        return data;
+      } else if (response.statusCode == 404) {
+        throw Exception('Licencia no encontrada');
+      } else {
+        throw Exception('Error del servidor: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error al obtener la licencia: $e');
+      rethrow;
+    }
+  }
 
-      pool.query(insertModificationQuery, [
-        'acco_Users',
-        userId,
-        parseInt(idMainAccount),
-        0,
-        jsonData
-      ], (err) => {
-        if (err) {
-          console.error('Error al insertar modificación:', err.message);
-          return res.status(500).json({ error: 'Error al guardar modificación' });
-        }
+Future<bool> agregarNuevaLicencia(Map<String, String?> map) async {
+  final url = Uri.parse('https://flutter-production-c437.up.railway.app/addLicense'); // <-- Asegúrate de cambiarlo
 
-        return res.json({ message: 'Contraseña actualizada correctamente' });
-      });
+  try {
+    // Validar campos obligatorios
+    if (map['idCollaborator'] == null ||
+        map['licNum'] == null ||
+        map['licClass'] == null ||
+        map['dueDate'] == null) {
+      print('Faltan datos obligatorios en el mapa');
+      return false;
+    }
+
+    final body = jsonEncode({
+      'idCollaborator': int.tryParse(map['idCollaborator']!), // <- Asegúrate que sea int
+      'licNum': map['licNum'],
+      'licClass': map['licClass'],
+      'dueDate': map['dueDate'], // <- Ya debe venir en formato ISO desde el widget
     });
-  });
-});
 
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
 
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['success'] == true;
+    } else {
+      print('Error del servidor: ${response.statusCode}');
+      print('Respuesta: ${response.body}');
+      return false;
+    }
+  } catch (e) {
+    print('Error al agregar la licencia: $e');
+    return false;
+  }
+}
 
-
-
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
-});
+}
