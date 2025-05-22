@@ -15,13 +15,21 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-app.get('/acco_Users', (req, res) => {
-  pool.query('SELECT * FROM acco_Users LIMIT 3', (err, results) => {
+// Ruta raíz para probar conexión a la base
+app.get('/', (req, res) => {
+  pool.getConnection((err, connection) => {
     if (err) {
-      console.error('Error en consulta:', err.message);
-      return res.status(500).json({ error: 'Error al consultar la base de datos' });
+      console.error('Error conectando a la base de datos:', err.message);
+      return res.status(500).send('Error conectando a la base de datos');
     }
-    res.json(results);
+    connection.ping(error => {
+      connection.release();
+      if (error) {
+        console.error('Ping a la base falló:', error.message);
+        return res.status(500).send('Error haciendo ping a la base');
+      }
+      res.send('Conexión a la base de datos exitosa');
+    });
   });
 });
 
