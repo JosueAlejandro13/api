@@ -156,8 +156,8 @@ app.put('/updateUserData', (req, res) => {
       `;
 
       const jsonData = JSON.stringify({
-         oldData,
-         newData,
+        ["-"]: oldData,
+        ["-"]: newData,
       });
       
       pool.query(insertModificationQuery, [
