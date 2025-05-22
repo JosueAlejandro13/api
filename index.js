@@ -39,6 +39,27 @@ app.get('/licencia/:idCollabo', (req, res) => {
   });
 });
 
+app.get('/userData/:id/:idUs', (req, res) => {
+  const { id, idUs } = req.params;
+
+  const query = `
+    SELECT * FROM collaborators_data 
+    WHERE id = ? AND idUs = ?
+  `;
+
+  pool.query(query, [id, idUs], (err, results) => {
+    if (err) {
+      console.error('Error en la consulta:', err.message);
+      return res.status(500).json({ error: 'Error al consultar la base de datos' });
+    }
+
+    if (results.length > 0) {
+      return res.json(results[0]); // Envía solo el primer resultado
+    } else {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+  });
+});
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
