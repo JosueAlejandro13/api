@@ -16,22 +16,29 @@ const pool = mysql.createPool({
 });
 
 // Ruta raíz para probar conexión a la base
-app.get('/', (req, res) => {
-  pool.getConnection((err, connection) => {
+app.get('/licencia/:idCollabo', (req, res) => {
+  const { idCollabo } = req.params;
+
+  const query = `
+    SELECT id, licNum, licClass, dueDate 
+    FROM collaborators_LicenseDrive 
+    WHERE idCollabo = ?
+  `;
+
+  pool.query(query, [idCollabo], (err, results) => {
     if (err) {
-      console.error('Error conectando a la base de datos:', err.message);
-      return res.status(500).send('Error conectando a la base de datos');
+      console.error('Error al consultar la base de datos:', err.message);
+      return res.status(500).json({ error: 'Error al consultar la base de datos' });
     }
-    connection.ping(error => {
-      connection.release();
-      if (error) {
-        console.error('Ping a la base falló:', error.message);
-        return res.status(500).send('Error haciendo ping a la base');
-      }
-      res.send('Conexión a la base de datos exitosa');
-    });
+
+    if (results.length > 0) {
+      return res.json(results[0]);
+    } else {
+      return res.status(404).json({ error: 'Licencia no encontrada' });
+    }
   });
 });
+
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
